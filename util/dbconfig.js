@@ -9,7 +9,7 @@ module.exports = {
     port: '3306',
   },
   //连接数据库，使用mysql的连接方式
-  //连接池对象
+  //连接池对象函数
   sqlConnect: function (sql, sqlArr, callBack) {
     var pool = mysql.createPool(this.config)
     pool.getConnection((err, conn) => {
@@ -24,7 +24,7 @@ module.exports = {
       conn.release();
     })
   },
-  //Promise回调
+  //Promise回调函数
   SysqlConnect: function (sysql, sqlArr) {
     return new Promise((resolve, reject) => {
       var pool = mysql.createPool(this.config)

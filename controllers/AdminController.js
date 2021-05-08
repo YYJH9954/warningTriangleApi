@@ -6,16 +6,15 @@ var salt = bcrypt.genSaltSync(10);
 var { PRIVITE_KEY, EXPIRESD } = require("../util/jwt.js")
 const jwt = require("jsonwebtoken");
 var dbCongif = require('../util/dbconfig.js');
+const { search } = require('../routes/administrators.js');
+const { getWarningTriangle } = require('./dbController.js');
 
-
-
-
+/* 方法 */
 //修改用户'信息详情'
 let setUserInfo = async (user_id, user_birth, user_sex, user_job, user_path) => {
   let sql = "update usersInfo set user_birth=?,user_sex=?,user_job=?,user_path=? where user_id=?";
   let sqlArr = [user_birth, user_sex, user_job, user_path, user_id];
   let res = await dbCongif.SysqlConnect(sql, sqlArr);
-  // console.log(res)
   if (res.affectedRows == 1) {
     console.log("修改用户信息详情成功");
     return true
@@ -26,8 +25,7 @@ let setUserInfo = async (user_id, user_birth, user_sex, user_job, user_path) => 
   }
 
 }
-
-//修改用户名称_方法
+//修改用户信息_方法
 let setUserInfoElse = async (user_id, user_name, user_tel, user_email) => {
   let sql = 'update users set \
   user_name=?,\
@@ -45,8 +43,7 @@ let setUserInfoElse = async (user_id, user_name, user_tel, user_email) => {
     return false
   }
 }
-
-//修改管理员名称_方法
+//修改管理员信息_方法
 let setAdminInfo = async (administrator_name, administrator_tel, administrator_email, administrator_right) => {
   let sql = 'update administrators set \
   administrator_name=?,\
@@ -64,7 +61,31 @@ let setAdminInfo = async (administrator_name, administrator_tel, administrator_e
     return false
   }
 }
-
+//修改三角牌信息_方法
+let setWarningTriangleInfo = async (lon, lon_h, lat, lat_h, ifuse, onoff, incident_site, address, equip_id) => {
+  let sql = 'update 4g_lastest set \
+  lon=?,\
+  lon_h=?,\
+  lat=?,\
+  lat_h=?,\
+  ifuse=?,\
+  onoff =?,\
+  incident_site =?,\
+  address = ?\
+  where equip_id=?';
+  let sqlArr = [lon, lon_h, lat, lat_h, ifuse, onoff, incident_site, address, equip_id];
+  console.log(sqlArr)
+  let res = await dbCongif.SysqlConnect(sql, sqlArr);
+  console.log(res)
+  if (res.affectedRows == 1) {
+    console.log("修改三角牌_成功");
+    return true
+  }
+  else {
+    console.log("修改三角牌_失败");
+    return false
+  }
+}
 
 
 //管理员登陆
@@ -116,6 +137,8 @@ login = (req, res) => {
   }
   dbCongif.sqlConnect(sql, sqlArr, callBack)
 }
+
+/* 注册 */
 //管理员注册
 regAdmin = async (req, res) => {
   //检测手机号是否存在
@@ -151,6 +174,41 @@ regAdmin = async (req, res) => {
     return true
   }
 }
+//添加三角牌
+regWarningTriangle = async (req, res) => {
+  //检测手机号是否存在
+  let { lon, lon_h, lat, lat_h, ifuse, onoff, incident_site, address, equip_id } = req.query;
+  let sql = "select * from 4g_lastest where equip_id = ?";
+  let sqlArr = [equip_id];
+  let result1 = await dbCongif.SysqlConnect(sql, sqlArr);
+  if (result1.length) {
+    res.send({
+      'code': 400,
+      'msg': '已经存在此三角牌的编号'
+    })
+  } else {
+    //检测到三角牌第一次添加
+    let sql = 'insert into 4g_lastest (lon, lon_h, lat, lat_h, ifuse, onoff, incident_site, address, equip_id) value(?,?,?,?,?,?,?,?,?)';
+    let sqlArr = [lon, lon_h, lat, lat_h, ifuse, onoff, incident_site, address, equip_id];
+    let result = await dbCongif.SysqlConnect(sql, sqlArr);
+    if (result.affectedRows == 1) {
+      res.send({
+        'code': 200,
+        'msg': '三角牌注册成功'
+      })
+    }
+    else {
+      res.send({
+        'code': 404,
+        'msg': '三角牌注册失败'
+      })
+    }
+
+    return true
+  }
+}
+
+/* 修改 */
 //修改管理员详情接口 （名字+手机+邮箱+权限）
 editAdmin = async (req, res) => {
   let { administrator_name, administrator_tel, administrator_email, administrator_right } = req.query;
@@ -168,7 +226,6 @@ editAdmin = async (req, res) => {
     })
   }
 }
-
 //修改用户详情接口 （名字+手机+邮箱+详情）
 editUserInfo = async (req, res) => {
   var { user_id, user_birth, user_sex, user_job, user_path, user_name, user_tel, user_email } = req.query;
@@ -195,8 +252,81 @@ editUserInfo = async (req, res) => {
     })
   }
 }
-
-//删除用户名称_方法
+//修改三角牌详情接口
+editWarningTriangle = async (req, res) => {
+  let { lon, lon_h, lat, lat_h, ifuse, onoff, incident_site, address, equip_id } = req.query;
+  let result = await setWarningTriangleInfo(lon, lon_h, lat, lat_h, ifuse, onoff, incident_site, address, equip_id);
+  if (result) {
+    res.send({
+      'code': 200,
+      'msg': '修改成功'
+    })
+  }
+  else {
+    res.send({
+      'code': 400,
+      'msg': '修改失败'
+    })
+  }
+}
+//修改用户和设备id
+editUserEquip = async (req, res) => {
+  let { equip_id, user_name, user_tel } = req.query;
+  let sql = 'UPDATE users set equip_id = ?,user_name=? where users.user_tel = ?';
+  let sqlArr = [equip_id, user_name, user_tel];
+  let result = await dbCongif.SysqlConnect(sql, sqlArr);
+  if (result) {
+    res.send({
+      'code': 200,
+      'msg': '修改用户和设备id成功'
+    })
+  }
+  else {
+    res.send({
+      'code': 400,
+      'msg': '修改用户和设备id失败'
+    })
+  }
+}
+editOnoff = async (req, res) => {
+  let { equip_id, onoff } = req.query;
+  let sql = ' UPDATE 4g_lastest set onoff = !onoff  where 4g_lastest.equip_id = ?';
+  let sqlArr = [equip_id, onoff];
+  let result = await dbCongif.SysqlConnect(sql, sqlArr);
+  if (result) {
+    res.send({
+      'code': 200,
+      'msg': '修改设备状态成功'
+    })
+  }
+  else {
+    res.send({
+      'code': 400,
+      'msg': '修改设备状态失败'
+    })
+  }
+}
+/* 删除 */
+//删除三角牌名称_方法
+deleteWarningTriangle = async (req, res) => {
+  let { equip_id } = req.query;
+  let sql = 'delete from 4g_lastest where equip_id=?';
+  let sqlArr = [equip_id];
+  let result = await dbCongif.SysqlConnect(sql, sqlArr);
+  if (result.affectedRows == 1) {
+    res.send({
+      'code': 200,
+      'msg': "删除三角牌成功"
+    })
+  }
+  else {
+    res.send({
+      'code': 400,
+      'msg': "删除三角牌失败"
+    })
+  }
+}
+//删除管理员_方法
 deleteAdmin = async (req, res) => {
   let { administrator_tel } = req.query;
   let sql = 'delete from administrators where administrator_tel=?';
@@ -215,23 +345,44 @@ deleteAdmin = async (req, res) => {
     })
   }
 }
-
-//删除用户名称_方法
+//删除用户_方法
 deleteUserAll = async (req, res) => {
-  let { user_id } = req.query;
-  let sql = 'delete from users where user_id=?';
-  let sqlArr = [user_id];
+  let { user_tel } = req.query;
+  let sql = 'DELETE from usersinfo where user_id =(SELECT user_id FROM users WHERE user_tel = ?);';
+  let sqlArr = [user_tel];
   let result = await dbCongif.SysqlConnect(sql, sqlArr);
-  if (result.affectedRows == 1) {
+  let sql1 = 'delete from users where user_tel= ?;';
+  let result1 = await dbCongif.SysqlConnect(sql1, sqlArr);
+  if (result.affectedRows || result1.affectedRows == 1) {
     res.send({
       'code': 200,
-      'msg': "删除用户成功"
+      'msg': "删除用户和用户信息成功"
     })
   }
   else {
     res.send({
       'code': 400,
-      'msg': "删除用户失败"
+      'msg': "删除用户和用户信息失败"
+    })
+  }
+}
+
+//删除用户信息名称_方法
+deleteUserInfo = async (req, res) => {
+  let { user_id } = req.query;
+  let sql = 'delete from usersInfo where user_id=?';
+  let sqlArr = [user_id];
+  let result = await dbCongif.SysqlConnect(sql, sqlArr);
+  if (result.affectedRows == 1) {
+    res.send({
+      'code': 200,
+      'msg': "删除用户详情信息成功"
+    })
+  }
+  else {
+    res.send({
+      'code': 400,
+      'msg': "删除用户详情信息失败"
     })
   }
 }
@@ -240,11 +391,16 @@ deleteUserAll = async (req, res) => {
 
 module.exports = {
   login,
-  editUserInfo,
-  deleteUserAll,
   regAdmin,
+  regWarningTriangle,
+  editUserInfo,
   editAdmin,
-  deleteAdmin
-
+  editWarningTriangle,
+  editUserEquip,
+  editOnoff,
+  deleteUserAll,
+  deleteUserInfo,
+  deleteAdmin,
+  deleteWarningTriangle,
 
 }

@@ -7,5 +7,4 @@ router.post('/setPsd', User.setPsd);
 router.post('/forgetPsd', User.forgetPsd);
 router.post('/regUser', User.regUser);
 router.get('/getGPS', User.getGPS);
-
 module.exports = router;

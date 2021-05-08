@@ -10,13 +10,7 @@ var dbCongif = require('../util/dbconfig.js');
 //request 调用外部接口使用
 const request = require('request');
 
-//高德地图接口
-let getLoLa = async (equip_id) => {
-  let sql = " select lon,lat from  4g_lastest where equip_id = ?";
-  let sqlArr = [equip_id];
-  let res = await dbCongif.SysqlConnect(sql, sqlArr);
-  return res;
-}
+
 //更新数据库定位数据
 let updateGPS = async (address, incident_site, equip_id) => {
   let sql = " update 4g_lastest set address=?,incident_site =? where equip_id= ? ";
@@ -30,13 +24,21 @@ let updateGPS = async (address, incident_site, equip_id) => {
   }
 }
 
+//高德地图接口
+let getLoLa = async (equip_id) => {
+  let sql = " select lon,lat from  4g_lastest where equip_id = ?";
+  let sqlArr = [equip_id];
+  let res = await dbCongif.SysqlConnect(sql, sqlArr);
+  return res;
+}
+
+
+
 //用户信息注册
 let regUserInfo = async (user_id, user_birth, user_sex, user_job, user_path) => {
   let sql = "update usersInfo set user_birth=?,user_sex=?,user_job=?,user_path=? where user_id=?";
   let sqlArr = [user_birth, user_sex, user_job, user_path, user_id];
-  console.log(sql, sqlArr);
   let res = await dbCongif.SysqlConnect(sql, sqlArr);
-  console.log(res)
   if (res.affectedRows == 1) {
     console.log("注册用户信息详情成功");
     return true
@@ -58,7 +60,7 @@ let checkUserPsd = async (user_tel) => {
   let sql = "select user_psd from users where user_tel=?";
   let sqlArr = [user_tel];
   let res = await dbCongif.SysqlConnect(sql, sqlArr);
-  console.log("checkPsd", res) //查看返回的密码
+  // console.log("checkPsd", res) //查看返回的密码
   if (res.length) {
     return res[0].user_psd
   }
@@ -74,7 +76,6 @@ regUser = async (req, res) => {
   let sql = "select * from users where user_tel = ?";
   let sqlArr = [user_tel];
   let result1 = await dbCongif.SysqlConnect(sql, sqlArr);
-  console.log(result1.length);
   if (result1.length) {
     res.send({
       'code': 400,
@@ -111,7 +112,7 @@ regUser = async (req, res) => {
 
 //用户登陆
 login = (req, res) => {
-  console.log("执行");
+  // console.log("执行用户登陆");
   var user_tel = req.query.user_tel,
     user_psd = req.query.user_psd;
   // var hash = bcrypt.hashSync(password, salt);//将获取到的密码进行加密，得到密文hash
@@ -120,7 +121,6 @@ login = (req, res) => {
   let callBack = async (err, data) => {
 
     if (err) {
-      console.log(err);
       res.send({
         'code': 404,
         'msg': "出错啦"
@@ -135,7 +135,6 @@ login = (req, res) => {
     }
     else {
       const match = bcrypt.compare(user_psd, data[0].user_psd)
-      console.log(user_psd, data[0].user_psd)
       match.then(res1 => {
         //.then是接收正确返回的信息
         if (res1 == true) {
@@ -155,7 +154,6 @@ login = (req, res) => {
       })
         .catch(err => {
           // .catch 返回报错信息
-          console.log(err)
           res.send({
             'code': 404,
             'msg': "出错啦"
@@ -208,8 +206,7 @@ forgetPsd = async (req, res) => {
   if (userPsd) {//有密码的话
     let sql = "update users set user_psd =? where user_tel=?";
     let sqlArr = [bcrypt.hashSync(newpassword, salt), user_tel]
-    let result = await dbCongif.SysqlConnect(sql, sqlArr);
-    console.log(result);
+    let result = await dbCongif.SysqlConnect(sql, sqlArr); console.log(result);
     if (result.affectedRows == 1) {
       res.send({
         'code': 200,
@@ -233,14 +230,10 @@ forgetPsd = async (req, res) => {
 getGPS = async (req, res) => {
   let { equip_id } = req.query;
   let res1 = await getLoLa(equip_id);
-  console.log(res1);
-  console.log(res1[0].lon, res1[0].lat);
   var url = "https://restapi.amap.com/v3/geocode/regeo?key=bd2cd1732c79dd66ce66da37ebe00ed0&location=" + res1[0].lon + "," + res1[0].lat;
-  console.log(url);
   request.get(url, function (err, response, data) {
     if (!err) {
       const GPSdata = JSON.parse(data);
-      console.log(GPSdata);
       //拼接事故发生地点
       let address = GPSdata.regeocode.addressComponent.country
         + GPSdata.regeocode.formatted_address;
@@ -253,17 +246,14 @@ getGPS = async (req, res) => {
         + GPSdata.regeocode.addressComponent.streetNumber.street
         + GPSdata.regeocode.addressComponent.streetNumber.direction
         + GPSdata.regeocode.addressComponent.streetNumber.number;
-      console.log(address, incident_site);
-      //       //调用了高德地图api接口地址写入数据库
+      //       //调用了高德地图api接口地址写入数据库
       let result = updateGPS(address, incident_site, equip_id);
       result.then(r => {
-        console.log(result)
         if (r == true) {
-          let sql1 = "select * from 4g_lastest where equip_id = ?";
+          let sql1 = "select * from 4g_lastest where equip_id =?";
           let sqlArr2 = [equip_id];
           let res2 = dbCongif.SysqlConnect(sql1, sqlArr2);
           res2.then(r2 => {
-            console.log(r2);
             res.send({
               'code': 200,
               'list': r2,
@@ -284,7 +274,6 @@ getGPS = async (req, res) => {
         'code': 404,
         'msg': "高德地图定位获取失败"
       })
-
     }
   })
 }
@@ -296,6 +285,5 @@ module.exports = {
   forgetPsd,
   regUser,
   setPsd,
-  getGPS,
-
+  getGPS
 }
